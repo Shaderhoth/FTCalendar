@@ -14,6 +14,7 @@ type Config struct {
 	GoogleClientID     string `json:"google_client_id"`
 	GoogleClientSecret string `json:"google_client_secret"`
 	GoogleRedirectURI  string `json:"google_redirect_uri"`
+	GoogleCalendarID   string `json:"google_calendar_id"`
 }
 
 func LoadConfig(filename string) (*Config, error) {
@@ -23,12 +24,12 @@ func LoadConfig(filename string) (*Config, error) {
 	}
 	defer file.Close()
 
-	var config Config
 	decoder := json.NewDecoder(file)
-	err = decoder.Decode(&config)
+	config := &Config{}
+	err = decoder.Decode(config)
 	if err != nil {
 		return nil, err
 	}
 
-	return &config, nil
+	return config, nil
 }
