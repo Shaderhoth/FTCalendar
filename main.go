@@ -42,7 +42,7 @@ func main() {
 			return
 		}
 
-		err = googlecalendar.AddICSEventsToCalendar(service, "primary", "calendar.ics")
+		err = googlecalendar.AddICSEventsToCalendar(service, cfg.GoogleCalendarID, "calendar.ics")
 		if err != nil {
 			fmt.Println("Error syncing ICS file with Google Calendar:", err)
 		} else {
