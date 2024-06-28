@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"funtech-scraper/config"
+	"funtech-scraper/googlecalendar"
 	"funtech-scraper/scraper"
 	"funtech-scraper/uploader"
 )
@@ -32,6 +33,20 @@ func main() {
 		err = uploader.UploadToGitHub(cfg.GithubToken, cfg.GithubRepo, cfg.GithubPath, "calendar.ics")
 		if err != nil {
 			fmt.Println("Error uploading to GitHub:", err)
+		}
+
+		// Sync ICS file with Google Calendar
+		service, err := googlecalendar.GetCalendarService(cfg)
+		if err != nil {
+			fmt.Println("Error getting Google Calendar service:", err)
+			return
+		}
+
+		err = googlecalendar.AddICSEventsToCalendar(service, "primary", "calendar.ics")
+		if err != nil {
+			fmt.Println("Error syncing ICS file with Google Calendar:", err)
+		} else {
+			fmt.Println("ICS file synced with Google Calendar successfully.")
 		}
 
 		// Wait for an hour before running again
