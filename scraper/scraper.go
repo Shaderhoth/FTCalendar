@@ -106,6 +106,7 @@ func login(session *http.Client, loginURL, username, password string) bool {
 }
 
 func scrapeLessons(dataURL string, session *http.Client, weekOffset int) []Lesson {
+	fmt.Printf("Fetching data from URL: %s\n", dataURL)
 	resp, err := session.Get(dataURL)
 	if err != nil {
 		fmt.Println("Error fetching data:", err)
@@ -113,7 +114,16 @@ func scrapeLessons(dataURL string, session *http.Client, weekOffset int) []Lesso
 	}
 	defer resp.Body.Close()
 
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error reading response body:", err)
+		return nil
+	}
+
+	// Log the HTML content
+	fmt.Printf("HTML content fetched:\n%s\n", string(body))
+
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(body)))
 	if err != nil {
 		fmt.Println("Error parsing HTML:", err)
 		return nil
@@ -121,17 +131,20 @@ func scrapeLessons(dataURL string, session *http.Client, weekOffset int) []Lesso
 
 	var lessons []Lesson
 	doc.Find("h4.panel-title").Each(func(i int, s *goquery.Selection) {
-		lessonInfo := strings.Split(s.Find("span").Text(), " • ")
-		if len(lessonInfo) < 4 {
+		lessonInfo := s.Find("span").Text()
+		lessonInfo = strings.TrimSpace(lessonInfo)
+		lessonParts := strings.Split(lessonInfo, " • ")
+		fmt.Printf("Parsed lesson parts: %v\n", lessonParts)
+		if len(lessonParts) < 4 {
 			return
 		}
-		course := lessonInfo[0] + " " + lessonInfo[1]
-		day := convertToFullWeekday(lessonInfo[2])
-		timeRange := lessonInfo[3]
+		course := lessonParts[0] + " " + lessonParts[1]
+		day := convertToFullWeekday(strings.TrimSpace(lessonParts[2]))
+		timeRange := strings.TrimSpace(lessonParts[3])
 		startTime, endTime := timeRange, timeRange
 		if strings.Contains(timeRange, "-") {
 			times := strings.Split(timeRange, "-")
-			startTime, endTime = times[0], times[1]
+			startTime, endTime = strings.TrimSpace(times[0]), strings.TrimSpace(times[1])
 		}
 
 		lessonType := 0
@@ -144,16 +157,19 @@ func scrapeLessons(dataURL string, session *http.Client, weekOffset int) []Lesso
 			lessonType = 3
 		}
 
-		lessons = append(lessons, Lesson{
+		lesson := Lesson{
 			Course:     course,
 			Day:        day,
 			StartTime:  startTime,
 			EndTime:    endTime,
 			LessonType: lessonType,
 			WeekOffset: weekOffset,
-		})
+		}
+		fmt.Printf("Created lesson: %+v\n", lesson)
+		lessons = append(lessons, lesson)
 	})
 
+	fmt.Printf("Total lessons scraped: %d\n", len(lessons))
 	return lessons
 }
 
@@ -167,15 +183,33 @@ func convertToFullWeekday(abbreviatedDay string) string {
 
 func GenerateICSFile(lessons []Lesson, filename string) {
 	cal := ics.NewCalendar()
-	weekStartDate := time.Now().AddDate(0, 0, -int(time.Now().Weekday()))
+
+	// Get the start of the week (assuming the week starts on Monday)
+	currentDate := time.Now()
+	weekStartDate := currentDate.AddDate(0, 0, -int(currentDate.Weekday())+1)
+	fmt.Printf("Current date: %v, Week start date: %v\n", currentDate, weekStartDate)
 
 	for _, lesson := range lessons {
-		eventDate := weekStartDate.AddDate(0, 0, getDayIndex(lesson.Day)+(lesson.WeekOffset*7))
-		startTime, _ := time.Parse("15:04", lesson.StartTime)
-		endTime, _ := time.Parse("15:04", lesson.EndTime)
+		// Calculate the event date based on the day of the week and the week offset
+		dayIndex := getDayIndex(lesson.Day)
+		eventDate := weekStartDate.AddDate(0, 0, dayIndex+(lesson.WeekOffset*7))
+		fmt.Printf("Lesson: %s, Day: %s, Day index: %d, Event date: %v\n", lesson.Course, lesson.Day, dayIndex, eventDate)
+
+		startTime, err := time.Parse("15:04", lesson.StartTime)
+		if err != nil {
+			fmt.Printf("Error parsing start time: %v\n", err)
+			continue
+		}
+		endTime, err := time.Parse("15:04", lesson.EndTime)
+		if err != nil {
+			fmt.Printf("Error parsing end time: %v\n", err)
+			continue
+		}
 
 		startDateTime := time.Date(eventDate.Year(), eventDate.Month(), eventDate.Day(), startTime.Hour(), startTime.Minute(), 0, 0, time.Local)
 		endDateTime := time.Date(eventDate.Year(), eventDate.Month(), eventDate.Day(), endTime.Hour(), endTime.Minute(), 0, 0, time.Local)
+
+		fmt.Printf("Event start: %v, Event end: %v\n", startDateTime, endDateTime)
 
 		event := cal.AddEvent(fmt.Sprintf("%s@%s", lesson.Course, lesson.Day))
 		event.SetSummary(lesson.Course)

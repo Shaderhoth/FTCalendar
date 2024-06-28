@@ -6,11 +6,14 @@ import (
 )
 
 type Config struct {
-	Username    string `json:"username"`
-	Password    string `json:"password"`
-	GithubToken string `json:"github_token"`
-	GithubRepo  string `json:"github_repo"`
-	GithubPath  string `json:"github_path"`
+	Username           string `json:"username"`
+	Password           string `json:"password"`
+	GithubToken        string `json:"github_token"`
+	GithubRepo         string `json:"github_repo"`
+	GithubPath         string `json:"github_path"`
+	GoogleClientID     string `json:"google_client_id"`
+	GoogleClientSecret string `json:"google_client_secret"`
+	GoogleRedirectURI  string `json:"google_redirect_uri"`
 }
 
 func LoadConfig(filename string) (*Config, error) {
