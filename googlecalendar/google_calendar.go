@@ -166,7 +166,6 @@ func AddICSEventsToCalendar(service *calendar.Service, calendarID, filename stri
 		if err != nil {
 			return fmt.Errorf("error inserting event into Google Calendar: %v", err)
 		}
-		fmt.Printf("Event '%s' inserted successfully.\n", gEvent.Summary)
 	}
 
 	return nil

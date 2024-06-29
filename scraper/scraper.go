@@ -120,9 +120,6 @@ func scrapeLessons(dataURL string, session *http.Client, weekOffset int) []Lesso
 		return nil
 	}
 
-	// Log the HTML content
-	fmt.Printf("HTML content fetched:\n%s\n", string(body))
-
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(body)))
 	if err != nil {
 		fmt.Println("Error parsing HTML:", err)
@@ -134,7 +131,6 @@ func scrapeLessons(dataURL string, session *http.Client, weekOffset int) []Lesso
 		lessonInfo := s.Find("span").Text()
 		lessonInfo = strings.TrimSpace(lessonInfo)
 		lessonParts := strings.Split(lessonInfo, " • ")
-		fmt.Printf("Parsed lesson parts: %v\n", lessonParts)
 		if len(lessonParts) < 4 {
 			return
 		}
@@ -165,7 +161,6 @@ func scrapeLessons(dataURL string, session *http.Client, weekOffset int) []Lesso
 			LessonType: lessonType,
 			WeekOffset: weekOffset,
 		}
-		fmt.Printf("Created lesson: %+v\n", lesson)
 		lessons = append(lessons, lesson)
 	})
 
