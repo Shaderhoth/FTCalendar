@@ -49,7 +49,6 @@ func main() {
 			fmt.Println("ICS file synced with Google Calendar successfully.")
 		}
 
-		// Wait for an hour before running again
-		time.Sleep(1 * time.Hour)
+		time.Sleep(time.Minute)
 	}
 }
