@@ -1,6 +1,9 @@
 # FunTech Scraper and Calendar Sync
 
-This project scrapes lesson data from the FunTech website, generates an ICS file, uploads it to GitHub, and syncs it with a Google Calendar.
+This project scrapes lesson data from the FunTech website, generates an ICS file, uploads it to GitHub, and syncs it with a Google Calendar.\
+Giant shoutout to Weetile for making the original version in python\
+This is a rewrite in golang with a few updates\
+https://github.com/Weetile/FunTechTutorScraper
 
 ## Prerequisites
 
