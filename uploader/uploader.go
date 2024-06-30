@@ -32,7 +32,6 @@ func getFileSHA(token, repo, path string) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	fmt.Printf("GET Response Status: %d\n", resp.StatusCode)
 	if resp.StatusCode == 404 {
 		fmt.Println("File not found, no SHA needed.")
 		return "", nil
@@ -95,7 +94,6 @@ func UploadToGitHub(token, repo, path, filename string) error {
 		return fmt.Errorf("error uploading to GitHub, status code: %d, response: %s", resp.StatusCode, string(respBody))
 	}
 
-	fmt.Println("File upload completed successfully.")
 	return nil
 }
 
