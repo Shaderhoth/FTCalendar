@@ -179,9 +179,13 @@ func GenerateICSFile(lessons []Lesson, filename string) {
 
 	// Get the start of the current week (Monday)
 	currentDate := time.Now()
-	weekStartDate := currentDate.AddDate(0, 0, -int(currentDate.Weekday())+1)
-	if currentDate.Weekday() == time.Sunday {
-		weekStartDate = weekStartDate.AddDate(0, 0, -6)
+	weekStartDate := currentDate
+	if currentDate.Weekday() != time.Monday {
+		offset := int(time.Monday - currentDate.Weekday())
+		if offset > 0 {
+			offset = -6
+		}
+		weekStartDate = currentDate.AddDate(0, 0, offset)
 	}
 
 	fmt.Printf("Current Date: %v, Week Start Date: %v\n", currentDate, weekStartDate)
