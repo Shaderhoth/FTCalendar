@@ -164,7 +164,6 @@ func scrapeLessons(dataURL string, session *http.Client, weekOffset int) []Lesso
 		lessons = append(lessons, lesson)
 	})
 
-	fmt.Printf("Total lessons scraped: %d\n", len(lessons))
 	return lessons
 }
 
@@ -182,13 +181,11 @@ func GenerateICSFile(lessons []Lesson, filename string) {
 	// Get the start of the week (assuming the week starts on Monday)
 	currentDate := time.Now()
 	weekStartDate := currentDate.AddDate(0, 0, -int(currentDate.Weekday())+1)
-	fmt.Printf("Current date: %v, Week start date: %v\n", currentDate, weekStartDate)
 
 	for _, lesson := range lessons {
 		// Calculate the event date based on the day of the week and the week offset
 		dayIndex := getDayIndex(lesson.Day)
 		eventDate := weekStartDate.AddDate(0, 0, dayIndex+(lesson.WeekOffset*7))
-		fmt.Printf("Lesson: %s, Day: %s, Day index: %d, Event date: %v\n", lesson.Course, lesson.Day, dayIndex, eventDate)
 
 		startTime, err := time.Parse("15:04", lesson.StartTime)
 		if err != nil {

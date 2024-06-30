@@ -105,7 +105,6 @@ func GetCalendarService(cfg *config.Config) (*calendar.Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve Calendar client: %v", err)
 	}
-	fmt.Println("Google Calendar client retrieved successfully.")
 	return srv, nil
 }
 
@@ -150,7 +149,6 @@ func AddICSEventsToCalendar(service *calendar.Service, calendarID, filename stri
 		}
 
 		if len(existingEvents.Items) > 0 {
-			fmt.Printf("Duplicate event '%s' already exists. Skipping...\n", event.GetProperty(ics.ComponentPropertySummary).Value)
 			continue
 		}
 
