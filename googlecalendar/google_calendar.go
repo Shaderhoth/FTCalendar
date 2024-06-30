@@ -130,6 +130,10 @@ func AddICSEventsToCalendar(service *calendar.Service, calendarID, filename stri
 			return fmt.Errorf("error parsing event end time: %v", err)
 		}
 
+		// Adjust times by adding one hour
+		start = start.Add(time.Hour)
+		end = end.Add(time.Hour)
+
 		// Ensure the end time is after the start time
 		if !end.After(start) {
 			end = start.Add(time.Hour) // Adjust end time to be one hour after start time
