@@ -106,7 +106,6 @@ func login(session *http.Client, loginURL, username, password string) bool {
 }
 
 func scrapeLessons(dataURL string, session *http.Client, weekOffset int) []Lesson {
-	fmt.Printf("Fetching data from URL: %s\n", dataURL)
 	resp, err := session.Get(dataURL)
 	if err != nil {
 		fmt.Println("Error fetching data:", err)
@@ -178,9 +177,14 @@ func convertToFullWeekday(abbreviatedDay string) string {
 func GenerateICSFile(lessons []Lesson, filename string) {
 	cal := ics.NewCalendar()
 
-	// Get the start of the week (assuming the week starts on Monday)
+	// Get the start of the current week (Monday)
 	currentDate := time.Now()
 	weekStartDate := currentDate.AddDate(0, 0, -int(currentDate.Weekday())+1)
+	if currentDate.Weekday() == time.Sunday {
+		weekStartDate = weekStartDate.AddDate(0, 0, -6)
+	}
+
+	fmt.Printf("Current Date: %v, Week Start Date: %v\n", currentDate, weekStartDate)
 
 	for _, lesson := range lessons {
 		// Calculate the event date based on the day of the week and the week offset
