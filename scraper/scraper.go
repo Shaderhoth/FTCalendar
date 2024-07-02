@@ -8,10 +8,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"google.golang.org/api/calendar/v3"
 )
 
 // Lesson represents a lesson schedule.
@@ -186,102 +184,8 @@ func getLessonType(s *goquery.Selection) int {
 	}
 }
 
-// AddLessonsToGoogleCalendar adds lessons directly to Google Calendar.
-func AddLessonsToGoogleCalendar(service *calendar.Service, calendarID string, lessons []Lesson) error {
-	// Get the start of the current week (Monday)
-	currentDate := time.Now()
-	weekStartDate := currentDate
-	if currentDate.Weekday() != time.Monday {
-		offset := int(time.Monday - currentDate.Weekday())
-		if offset > 0 {
-			offset = -6
-		}
-		weekStartDate = currentDate.AddDate(0, 0, offset)
-	}
-
-	fmt.Printf("Current Date: %v, Week Start Date: %v\n", currentDate, weekStartDate)
-
-	events := make([]*calendar.Event, 0)
-	for _, lesson := range lessons {
-		// Calculate the event date based on the day of the week and the week offset
-		dayIndex := getDayIndex(lesson.Day)
-		eventDate := weekStartDate.AddDate(0, 0, dayIndex+(lesson.WeekOffset*7))
-
-		startDateTime, endDateTime, err := getEventTimes(eventDate, lesson.StartTime, lesson.EndTime)
-		if err != nil {
-			fmt.Println("Error parsing event times:", err)
-			continue
-		}
-
-		event := &calendar.Event{
-			Summary: lesson.Course,
-			Start: &calendar.EventDateTime{
-				DateTime: startDateTime.Format(time.RFC3339),
-				TimeZone: "Europe/London",
-			},
-			End: &calendar.EventDateTime{
-				DateTime: endDateTime.Format(time.RFC3339),
-				TimeZone: "Europe/London",
-			},
-			ColorId: getColorIDForLessonType(lesson.LessonType),
-		}
-		events = append(events, event)
-	}
-
-	// Add events to Google Calendar
-	for _, event := range events {
-		_, err := service.Events.Insert(calendarID, event).Do()
-		if err != nil {
-			fmt.Printf("Error creating event: %v\n", err)
-			return err
-		}
-	}
-
-	return nil
-}
-
-// getEventTimes parses and returns the start and end times for the event.
-func getEventTimes(eventDate time.Time, startTimeStr, endTimeStr string) (startDateTime, endDateTime time.Time, err error) {
-	startTime, err := time.Parse("15:04", startTimeStr)
-	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("error parsing start time: %v", err)
-	}
-	endTime, err := time.Parse("15:04", endTimeStr)
-	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("error parsing end time: %v", err)
-	}
-
-	startDateTime = time.Date(eventDate.Year(), eventDate.Month(), eventDate.Day(), startTime.Hour(), startTime.Minute(), 0, 0, time.Local)
-	endDateTime = time.Date(eventDate.Year(), eventDate.Month(), eventDate.Day(), endTime.Hour(), endTime.Minute(), 0, 0, time.Local)
-
-	return startDateTime, endDateTime, nil
-}
-
-// getDayIndex returns the index of the day in the week.
-func getDayIndex(day string) int {
-	daysMapping := map[string]int{
-		"Monday": 0, "Tuesday": 1, "Wednesday": 2,
-		"Thursday": 3, "Friday": 4, "Saturday": 5, "Sunday": 6,
-	}
-	return daysMapping[day]
-}
-
 // stringToInt converts a string to an integer.
 func stringToInt(s string) int {
 	i, _ := strconv.Atoi(s)
 	return i
-}
-
-// getColorIDForLessonType returns a color ID for the lesson type.
-func getColorIDForLessonType(lessonType int) string {
-	switch lessonType {
-	case 1:
-		return "2" // Green
-	case 2:
-		return "5" // Yellow
-	case 3:
-		return "11" // Red
-	default:
-		return "9" // Blue
-	}
 }

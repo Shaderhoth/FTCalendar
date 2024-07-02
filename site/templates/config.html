@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Config</title>
+</head>
+<body>
+    <h1>Config</h1>
+    <form action="/save-config" method="post">
+        <label for="google_calendar_id">Google Calendar ID:</label>
+        <input type="text" id="google_calendar_id" name="google_calendar_id" value="{{.GoogleCalendarID}}"><br><br>
+        <label for="access_token">Access Token:</label>
+        <input type="text" id="access_token" name="access_token" value="{{.AccessToken}}"><br><br>
+        <label for="refresh_token">Refresh Token:</label>
+        <input type="text" id="refresh_token" name="refresh_token" value="{{.RefreshToken}}"><br><br>
+        <input type="submit" value="Save">
+    </form>
+</body>
+</html>
