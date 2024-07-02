@@ -14,6 +14,7 @@ import (
 	ics "github.com/arran4/golang-ical"
 )
 
+// Lesson represents a lesson schedule.
 type Lesson struct {
 	Course     string
 	Day        string
@@ -23,6 +24,7 @@ type Lesson struct {
 	WeekOffset int
 }
 
+// ScrapeLessons logs in to the website and scrapes lessons for the current and next week.
 func ScrapeLessons(username, password string) []Lesson {
 	jar, _ := cookiejar.New(nil)
 	session := &http.Client{
@@ -66,6 +68,7 @@ func ScrapeLessons(username, password string) []Lesson {
 	return append(lessonsCurrentWeek, lessonsNextWeek...)
 }
 
+// login performs the login to the website.
 func login(session *http.Client, loginURL, username, password string) bool {
 	formData := url.Values{
 		"_method":               {"POST"},
@@ -105,6 +108,7 @@ func login(session *http.Client, loginURL, username, password string) bool {
 	return true
 }
 
+// scrapeLessons scrapes lessons from the provided URL.
 func scrapeLessons(dataURL string, session *http.Client, weekOffset int) []Lesson {
 	resp, err := session.Get(dataURL)
 	if err != nil {
@@ -142,15 +146,7 @@ func scrapeLessons(dataURL string, session *http.Client, weekOffset int) []Lesso
 			startTime, endTime = strings.TrimSpace(times[0]), strings.TrimSpace(times[1])
 		}
 
-		lessonType := 0
-		parentClass := s.Parent().Parent().AttrOr("class", "")
-		if strings.Contains(parentClass, "panel-info") {
-			lessonType = 1
-		} else if strings.Contains(parentClass, "panel-warning") {
-			lessonType = 2
-		} else if strings.Contains(parentClass, "panel-danger") {
-			lessonType = 3
-		}
+		lessonType := getLessonType(s)
 
 		lesson := Lesson{
 			Course:     course,
@@ -166,6 +162,7 @@ func scrapeLessons(dataURL string, session *http.Client, weekOffset int) []Lesso
 	return lessons
 }
 
+// convertToFullWeekday converts abbreviated weekday to full name.
 func convertToFullWeekday(abbreviatedDay string) string {
 	daysMapping := map[string]string{
 		"Mon": "Monday", "Tue": "Tuesday", "Wed": "Wednesday",
@@ -174,6 +171,22 @@ func convertToFullWeekday(abbreviatedDay string) string {
 	return daysMapping[abbreviatedDay]
 }
 
+// getLessonType determines the lesson type based on the parent class.
+func getLessonType(s *goquery.Selection) int {
+	parentClass := s.Parent().Parent().AttrOr("class", "")
+	switch {
+	case strings.Contains(parentClass, "panel-info"):
+		return 1
+	case strings.Contains(parentClass, "panel-warning"):
+		return 2
+	case strings.Contains(parentClass, "panel-danger"):
+		return 3
+	default:
+		return 0
+	}
+}
+
+// GenerateICSFile generates an ICS file from the scraped lessons.
 func GenerateICSFile(lessons []Lesson, filename string) {
 	cal := ics.NewCalendar()
 
@@ -195,21 +208,13 @@ func GenerateICSFile(lessons []Lesson, filename string) {
 		dayIndex := getDayIndex(lesson.Day)
 		eventDate := weekStartDate.AddDate(0, 0, dayIndex+(lesson.WeekOffset*7))
 
-		startTime, err := time.Parse("15:04", lesson.StartTime)
+		startDateTime, endDateTime, err := getEventTimes(eventDate, lesson.StartTime, lesson.EndTime)
 		if err != nil {
-			fmt.Printf("Error parsing start time: %v\n", err)
-			continue
-		}
-		endTime, err := time.Parse("15:04", lesson.EndTime)
-		if err != nil {
-			fmt.Printf("Error parsing end time: %v\n", err)
+			fmt.Println("Error parsing event times:", err)
 			continue
 		}
 
-		startDateTime := time.Date(eventDate.Year(), eventDate.Month(), eventDate.Day(), startTime.Hour(), startTime.Minute(), 0, 0, time.Local)
-		endDateTime := time.Date(eventDate.Year(), eventDate.Month(), eventDate.Day(), endTime.Hour(), endTime.Minute(), 0, 0, time.Local)
-
-		fmt.Printf("Event start: %v, Event end: %v\n", startDateTime, endDateTime)
+		//fmt.Printf("Event start: %v, Event end: %v\n", startDateTime, endDateTime)
 
 		event := cal.AddEvent(fmt.Sprintf("%s@%s", lesson.Course, lesson.Day))
 		event.SetSummary(lesson.Course)
@@ -224,6 +229,24 @@ func GenerateICSFile(lessons []Lesson, filename string) {
 	}
 }
 
+// getEventTimes parses and returns the start and end times for the event.
+func getEventTimes(eventDate time.Time, startTimeStr, endTimeStr string) (startDateTime, endDateTime time.Time, err error) {
+	startTime, err := time.Parse("15:04", startTimeStr)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("error parsing start time: %v", err)
+	}
+	endTime, err := time.Parse("15:04", endTimeStr)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("error parsing end time: %v", err)
+	}
+
+	startDateTime = time.Date(eventDate.Year(), eventDate.Month(), eventDate.Day(), startTime.Hour(), startTime.Minute(), 0, 0, time.Local)
+	endDateTime = time.Date(eventDate.Year(), eventDate.Month(), eventDate.Day(), endTime.Hour(), endTime.Minute(), 0, 0, time.Local)
+
+	return startDateTime, endDateTime, nil
+}
+
+// getDayIndex returns the index of the day in the week.
 func getDayIndex(day string) int {
 	daysMapping := map[string]int{
 		"Monday": 0, "Tuesday": 1, "Wednesday": 2,
@@ -232,6 +255,7 @@ func getDayIndex(day string) int {
 	return daysMapping[day]
 }
 
+// stringToInt converts a string to an integer.
 func stringToInt(s string) int {
 	i, _ := strconv.Atoi(s)
 	return i

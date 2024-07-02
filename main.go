@@ -11,6 +11,7 @@ import (
 )
 
 func main() {
+	clearAll := false // Set this to true if you want to clear the calendar first
 	for {
 		// Load configuration
 		cfg, err := config.LoadConfig("config.json")
@@ -42,13 +43,16 @@ func main() {
 			return
 		}
 
-		err = googlecalendar.AddICSEventsToCalendar(service, cfg.GoogleCalendarID, "calendar.ics")
+		// Clear all events before syncing, if needed
+		err = googlecalendar.AddICSEventsToCalendar(service, cfg.GoogleCalendarID, "calendar.ics", clearAll)
 		if err != nil {
 			fmt.Println("Error syncing ICS file with Google Calendar:", err)
 		} else {
 			fmt.Println("ICS file synced with Google Calendar successfully.")
 		}
-
-		time.Sleep(10 * time.Minute)
+		if !clearAll {
+			time.Sleep(1 * time.Minute)
+		}
+		clearAll = false
 	}
 }
