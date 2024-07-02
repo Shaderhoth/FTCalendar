@@ -4,19 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"funtech-scraper/config"
 
-	ics "github.com/arran4/golang-ical"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/calendar/v3"
+	"google.golang.org/api/googleapi"
 )
 
 var (
@@ -84,91 +82,76 @@ func saveToken(path string, token *oauth2.Token) {
 	json.NewEncoder(f).Encode(token)
 }
 
-func getConfig(cfg *config.Config) (*oauth2.Config, error) {
+func getConfig(cfg *config.Config) *oauth2.Config {
 	return &oauth2.Config{
 		ClientID:     cfg.GoogleClientID,
 		ClientSecret: cfg.GoogleClientSecret,
 		RedirectURL:  cfg.GoogleRedirectURI,
 		Scopes:       []string{calendar.CalendarScope},
 		Endpoint:     google.Endpoint,
-	}, nil
+	}
 }
 
 func GetCalendarService(cfg *config.Config) (*calendar.Service, error) {
-	oauthConfig, err := getConfig(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read client secret: %v", err)
-	}
-
+	oauthConfig = getConfig(cfg)
 	client := getClient(oauthConfig)
 	srv, err := calendar.New(client)
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve Calendar client: %v", err)
 	}
+	fmt.Println("Google Calendar client retrieved successfully.")
 	return srv, nil
 }
 
-func AddICSEventsToCalendar(service *calendar.Service, calendarID, filename string) error {
-	icsData, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return fmt.Errorf("error reading ICS file: %v", err)
-	}
-
-	cal, err := ics.ParseCalendar(strings.NewReader(string(icsData)))
-	if err != nil {
-		return fmt.Errorf("error parsing ICS data: %v", err)
-	}
-
-	for _, event := range cal.Events() {
-		start, err := time.Parse("20060102T150405Z", event.GetProperty(ics.ComponentPropertyDtStart).Value)
+func ClearCalendar(service *calendar.Service, calendarID string) error {
+	pageToken := ""
+	for {
+		events, err := service.Events.List(calendarID).PageToken(pageToken).Do()
 		if err != nil {
-			return fmt.Errorf("error parsing event start time: %v", err)
-		}
-		end, err := time.Parse("20060102T150405Z", event.GetProperty(ics.ComponentPropertyDtEnd).Value)
-		if err != nil {
-			return fmt.Errorf("error parsing event end time: %v", err)
+			return fmt.Errorf("error fetching events from Google Calendar: %v", err)
 		}
 
-		// Adjust times by adding one hour
-		start = start.Add(time.Hour)
-		end = end.Add(time.Hour)
-
-		// Ensure the end time is after the start time
-		if !end.After(start) {
-			end = start.Add(time.Hour) // Adjust end time to be one hour after start time
+		for _, event := range events.Items {
+			if event == nil || event.Status == "cancelled" {
+				continue
+			}
+			err = service.Events.Delete(calendarID, event.Id).Do()
+			if err != nil {
+				if gerr, ok := err.(*googleapi.Error); ok && gerr.Code == 410 {
+					fmt.Printf("Event '%s' (ID: %s) already deleted from Google Calendar.\n", event.Summary, event.Id)
+					continue
+				}
+				return fmt.Errorf("error deleting event from Google Calendar: %v", err)
+			}
+			fmt.Printf("Event '%s' (ID: %s) removed from Google Calendar.\n", event.Summary, event.Id)
 		}
 
-		// Check for duplicate events
-		existingEvents, err := service.Events.List(calendarID).
-			TimeMin(start.Format(time.RFC3339)).
-			TimeMax(end.Format(time.RFC3339)).
-			Q(event.GetProperty(ics.ComponentPropertySummary).Value).
-			Do()
-		if err != nil {
-			return fmt.Errorf("error listing events: %v", err)
-		}
-
-		if len(existingEvents.Items) > 0 {
-			continue
-		}
-
-		gEvent := &calendar.Event{
-			Summary: event.GetProperty(ics.ComponentPropertySummary).Value,
-			Start: &calendar.EventDateTime{
-				DateTime: start.Format(time.RFC3339),
-				TimeZone: "UTC",
-			},
-			End: &calendar.EventDateTime{
-				DateTime: end.Format(time.RFC3339),
-				TimeZone: "UTC",
-			},
-		}
-
-		_, err = service.Events.Insert(calendarID, gEvent).Do()
-		if err != nil {
-			return fmt.Errorf("error inserting event into Google Calendar: %v", err)
+		pageToken = events.NextPageToken
+		if pageToken == "" {
+			break
 		}
 	}
 
+	fmt.Println("All events cleared from Google Calendar.")
 	return nil
+}
+
+func GetAllEvents(service *calendar.Service, calendarID string) ([]*calendar.Event, error) {
+	var allEvents []*calendar.Event
+	pageToken := ""
+	for {
+		events, err := service.Events.List(calendarID).PageToken(pageToken).Do()
+		if err != nil {
+			return nil, fmt.Errorf("error fetching events from Google Calendar: %v", err)
+		}
+		allEvents = append(allEvents, events.Items...)
+		fmt.Printf("Fetched %d events from Google Calendar\n", len(events.Items))
+
+		pageToken = events.NextPageToken
+		if pageToken == "" {
+			break
+		}
+	}
+	fmt.Printf("Total events fetched: %d\n", len(allEvents))
+	return allEvents, nil
 }
