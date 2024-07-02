@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	ics "github.com/arran4/golang-ical"
+	"google.golang.org/api/calendar/v3"
 )
 
 // Lesson represents a lesson schedule.
@@ -186,10 +186,8 @@ func getLessonType(s *goquery.Selection) int {
 	}
 }
 
-// GenerateICSFile generates an ICS file from the scraped lessons.
-func GenerateICSFile(lessons []Lesson, filename string) {
-	cal := ics.NewCalendar()
-
+// AddLessonsToGoogleCalendar adds lessons directly to Google Calendar.
+func AddLessonsToGoogleCalendar(service *calendar.Service, calendarID string, lessons []Lesson) error {
 	// Get the start of the current week (Monday)
 	currentDate := time.Now()
 	weekStartDate := currentDate
@@ -203,6 +201,7 @@ func GenerateICSFile(lessons []Lesson, filename string) {
 
 	fmt.Printf("Current Date: %v, Week Start Date: %v\n", currentDate, weekStartDate)
 
+	events := make([]*calendar.Event, 0)
 	for _, lesson := range lessons {
 		// Calculate the event date based on the day of the week and the week offset
 		dayIndex := getDayIndex(lesson.Day)
@@ -214,19 +213,31 @@ func GenerateICSFile(lessons []Lesson, filename string) {
 			continue
 		}
 
-		//fmt.Printf("Event start: %v, Event end: %v\n", startDateTime, endDateTime)
-
-		event := cal.AddEvent(fmt.Sprintf("%s@%s", lesson.Course, lesson.Day))
-		event.SetSummary(lesson.Course)
-		event.SetStartAt(startDateTime)
-		event.SetEndAt(endDateTime)
+		event := &calendar.Event{
+			Summary: lesson.Course,
+			Start: &calendar.EventDateTime{
+				DateTime: startDateTime.Format(time.RFC3339),
+				TimeZone: "Europe/London",
+			},
+			End: &calendar.EventDateTime{
+				DateTime: endDateTime.Format(time.RFC3339),
+				TimeZone: "Europe/London",
+			},
+			ColorId: getColorIDForLessonType(lesson.LessonType),
+		}
+		events = append(events, event)
 	}
 
-	icsData := cal.Serialize()
-	err := ioutil.WriteFile(filename, []byte(icsData), 0644)
-	if err != nil {
-		fmt.Println("Error writing ICS file:", err)
+	// Add events to Google Calendar
+	for _, event := range events {
+		_, err := service.Events.Insert(calendarID, event).Do()
+		if err != nil {
+			fmt.Printf("Error creating event: %v\n", err)
+			return err
+		}
 	}
+
+	return nil
 }
 
 // getEventTimes parses and returns the start and end times for the event.
@@ -259,4 +270,18 @@ func getDayIndex(day string) int {
 func stringToInt(s string) int {
 	i, _ := strconv.Atoi(s)
 	return i
+}
+
+// getColorIDForLessonType returns a color ID for the lesson type.
+func getColorIDForLessonType(lessonType int) string {
+	switch lessonType {
+	case 1:
+		return "2" // Green
+	case 2:
+		return "5" // Yellow
+	case 3:
+		return "11" // Red
+	default:
+		return "9" // Blue
+	}
 }
