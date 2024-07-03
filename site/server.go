@@ -18,6 +18,7 @@ var (
 	templates = template.Must(template.ParseGlob("site/templates/*.html"))
 	mu        sync.Mutex
 	users     = make(map[string]*config.UserConfig)
+	authCodes = make(map[string]string)
 )
 
 func loadUserConfigs() error {
@@ -51,71 +52,128 @@ func saveUserConfig(username string, userCfg *config.UserConfig) error {
 	return json.NewEncoder(file).Encode(userCfg)
 }
 
-func loginHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodPost {
-		username := r.FormValue("username")
-		password := r.FormValue("password")
+func GetAuthCode(username string) (string, bool) {
+	mu.Lock()
+	defer mu.Unlock()
+	code, exists := authCodes[username]
+	return code, exists
+}
 
-		userCfg, ok := users[username]
-		if !ok || userCfg.Password != password {
-			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
-			return
-		}
-
-		http.Redirect(w, r, "/config?username="+username, http.StatusSeeOther)
+func authHandler(w http.ResponseWriter, r *http.Request) {
+	username, err := r.Cookie("username")
+	if err == nil && username != nil {
+		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 		return
 	}
 
-	templates.ExecuteTemplate(w, "login.html", nil)
+	if r.Method == http.MethodPost {
+		action := r.FormValue("action")
+		username := r.FormValue("username")
+		password := r.FormValue("password")
+
+		if action == "login" {
+			userCfg, ok := users[username]
+			if !ok || userCfg.Password != password {
+				http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+				return
+			}
+
+			http.SetCookie(w, &http.Cookie{
+				Name:  "username",
+				Value: username,
+				Path:  "/",
+			})
+
+			http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+		} else if action == "register" {
+			if _, exists := users[username]; exists {
+				http.Error(w, "User already exists", http.StatusBadRequest)
+				return
+			}
+
+			userCfg := &config.UserConfig{
+				Username: username,
+				Password: password,
+			}
+			users[username] = userCfg
+			saveUserConfig(username, userCfg)
+
+			http.SetCookie(w, &http.Cookie{
+				Name:  "username",
+				Value: username,
+				Path:  "/",
+			})
+
+			http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+		}
+		return
+	}
+
+	templates.ExecuteTemplate(w, "auth.html", nil)
 }
 
-func configHandler(w http.ResponseWriter, r *http.Request) {
-	username := r.URL.Query().Get("username")
-	userCfg, ok := users[username]
+func dashboardHandler(w http.ResponseWriter, r *http.Request) {
+	username, err := r.Cookie("username")
+	if err != nil {
+		http.Redirect(w, r, "/auth", http.StatusSeeOther)
+		return
+	}
+
+	userCfg, ok := users[username.Value]
 	if !ok {
-		http.Error(w, "User not found", http.StatusNotFound)
+		http.Redirect(w, r, "/auth", http.StatusSeeOther)
 		return
 	}
 
 	if r.Method == http.MethodPost {
 		userCfg.GoogleCalendarID = r.FormValue("google_calendar_id")
-		userCfg.AccessToken = r.FormValue("access_token")
-		userCfg.RefreshToken = r.FormValue("refresh_token")
+		userCfg.Username = r.FormValue("username")
+		userCfg.Password = r.FormValue("password")
+		saveUserConfig(username.Value, userCfg)
 
-		if err := saveUserConfig(username, userCfg); err != nil {
-			http.Error(w, "Error saving config", http.StatusInternalServerError)
-			return
-		}
-
-		fmt.Fprintf(w, "Config saved successfully for user: %s", username)
+		fmt.Fprintf(w, "Config saved successfully for user: %s", username.Value)
 		return
 	}
 
-	templates.ExecuteTemplate(w, "config.html", userCfg)
+	templates.ExecuteTemplate(w, "dashboard.html", userCfg)
 }
 
-func StartServer() {
+func authCallbackHandler(w http.ResponseWriter, r *http.Request) {
+	//state := r.URL.Query().Get("state")
+	code := r.URL.Query().Get("code")
+	username, err := r.Cookie("username")
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	mu.Lock()
+	authCodes[username.Value] = code
+	mu.Unlock()
+
+	fmt.Fprintf(w, "Authorization completed. You can close this window.")
+}
+
+func StartServer(port string) {
 	// Load user configurations
 	if err := loadUserConfigs(); err != nil {
 		log.Fatalf("Error loading user configs: %v", err)
 	}
 
-	// HTTP handlers
-	http.HandleFunc("/login", loginHandler)
-	http.HandleFunc("/config", configHandler)
+	http.HandleFunc("/auth", authHandler)
+	http.HandleFunc("/dashboard", dashboardHandler)
+	http.HandleFunc("/auth_callback", authCallbackHandler)
 
-	// Load SSL certificates
 	certFile := "cert.pem"
 	keyFile := "key.pem"
 
-	// Set up HTTPS server
 	server := &http.Server{
-		Addr: ":443",
+		Addr: ":" + port,
 		TLSConfig: &tls.Config{
 			MinVersion: tls.VersionTLS12,
 		},
 	}
 
-	log.Println("Starting server on https://localhost")
+	log.Printf("Starting server on https://localhost:%s\n", port)
 	log.Fatal(server.ListenAndServeTLS(certFile, keyFile))
 }

@@ -1,27 +1,13 @@
 package scraper
 
 import (
-	"context"
 	"crypto/md5"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"log"
-	"net/http"
-	"os"
 	"time"
 
-	"funtech-scraper/config"
-
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/calendar/v3"
 	"google.golang.org/api/googleapi"
-)
-
-var (
-	oauthConfig *oauth2.Config
-	authCode    string
 )
 
 func AddLessonsToGoogleCalendar(service *calendar.Service, calendarID string, lessons []Lesson, clearAll bool) error {
@@ -60,8 +46,7 @@ func AddLessonsToGoogleCalendar(service *calendar.Service, calendarID string, le
 	fmt.Println("Lessons:")
 	for _, lesson := range lessons {
 		// Calculate the event date based on the day of the week and the week offset
-		dayIndex := getDayIndex(lesson.Day)
-		eventDate := time.Now().AddDate(0, 0, dayIndex+(lesson.WeekOffset*7)-1) // Correct the day offset
+		eventDate := CalculateEventDate(time.Now(), lesson.Day, lesson.WeekOffset)
 
 		startDateTime, endDateTime, err := getEventTimes(eventDate, lesson.StartTime, lesson.EndTime)
 		if err != nil {
@@ -156,147 +141,6 @@ func getColorIDForLessonType(lessonType int) string {
 	default:
 		return "2" // Green (default)
 	}
-}
-
-func getEventTimes(eventDate time.Time, startTimeStr, endTimeStr string) (startDateTime, endDateTime time.Time, err error) {
-	startTime, err := time.Parse("15:04", startTimeStr)
-	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("error parsing start time: %v", err)
-	}
-	endTime, err := time.Parse("15:04", endTimeStr)
-	if err != nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("error parsing end time: %v", err)
-	}
-
-	startDateTime = time.Date(eventDate.Year(), eventDate.Month(), eventDate.Day(), startTime.Hour(), startTime.Minute(), 0, 0, time.Local)
-	endDateTime = time.Date(eventDate.Year(), eventDate.Month(), eventDate.Day(), endTime.Hour(), endTime.Minute(), 0, 0, time.Local)
-
-	return startDateTime, endDateTime, nil
-}
-
-func getDayIndex(day string) int {
-	daysMapping := map[string]int{
-		"Monday": 0, "Tuesday": 1, "Wednesday": 2,
-		"Thursday": 3, "Friday": 4, "Saturday": 5, "Sunday": 6,
-	}
-	return daysMapping[day]
-}
-
-// getClient retrieves a token, saves the token, then returns the generated client.
-func getClient(config *oauth2.Config, userCfg *config.UserConfig) *http.Client {
-	tokenFile := fmt.Sprintf("config/user_configs/%s_token.json", userCfg.Username)
-	tok, err := tokenFromFile(tokenFile)
-	if err != nil {
-		tok, err = getTokenFromConfig(userCfg)
-		if err != nil {
-			tok = getTokenFromWeb(config, userCfg)
-		}
-		saveToken(tokenFile, tok)
-	}
-	return config.Client(context.Background(), tok)
-}
-
-func getTokenFromConfig(userCfg *config.UserConfig) (*oauth2.Token, error) {
-	if userCfg.AccessToken == "" || userCfg.RefreshToken == "" {
-		return nil, fmt.Errorf("no token found in config")
-	}
-	expiry, err := time.Parse(time.RFC3339, userCfg.Expiry)
-	if err != nil {
-		return nil, err
-	}
-	return &oauth2.Token{
-		AccessToken:  userCfg.AccessToken,
-		TokenType:    userCfg.TokenType,
-		RefreshToken: userCfg.RefreshToken,
-		Expiry:       expiry,
-	}, nil
-}
-
-// getTokenFromWeb requests a token from the web, then returns the retrieved token.
-func getTokenFromWeb(config *oauth2.Config, userCfg *config.UserConfig) *oauth2.Token {
-	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	fmt.Printf("Go to the following link in your browser then type the authorization code: \n%v\n", authURL)
-
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		authCode = r.URL.Query().Get("code")
-		fmt.Fprintf(w, "Authorization completed. You can close this window.")
-	})
-
-	server := &http.Server{Addr: ":8080"}
-	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("ListenAndServe(): %v", err)
-		}
-	}()
-
-	for authCode == "" {
-		time.Sleep(time.Second)
-	}
-
-	server.Shutdown(context.Background())
-
-	tok, err := config.Exchange(context.Background(), authCode)
-	if err != nil {
-		log.Fatalf("Unable to retrieve token from web %v", err)
-	}
-
-	// Save the token details in user config
-	userCfg.AccessToken = tok.AccessToken
-	userCfg.TokenType = tok.TokenType
-	userCfg.RefreshToken = tok.RefreshToken
-	userCfg.Expiry = tok.Expiry.Format(time.RFC3339)
-
-	if err := saveUserConfig(userCfg.Username, userCfg); err != nil {
-		log.Fatalf("Unable to save user config: %v", err)
-	}
-
-	return tok
-}
-
-// tokenFromFile retrieves a token from a local file.
-func tokenFromFile(file string) (*oauth2.Token, error) {
-	f, err := os.Open(file)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	tok := &oauth2.Token{}
-	err = json.NewDecoder(f).Decode(tok)
-	return tok, err
-}
-
-// saveToken saves a token to a file path.
-func saveToken(path string, token *oauth2.Token) {
-	fmt.Printf("Saving credential file to: %s\n", path)
-	f, err := os.Create(path)
-	if err != nil {
-		fmt.Printf("Unable to cache oauth token: %v", err)
-	}
-	defer f.Close()
-	json.NewEncoder(f).Encode(token)
-}
-
-// getConfig constructs the OAuth2 configuration.
-func getConfig(commonCfg *config.CommonConfig) *oauth2.Config {
-	return &oauth2.Config{
-		ClientID:     commonCfg.GoogleClientID,
-		ClientSecret: commonCfg.GoogleClientSecret,
-		RedirectURL:  commonCfg.GoogleRedirectURI,
-		Scopes:       []string{calendar.CalendarScope},
-		Endpoint:     google.Endpoint,
-	}
-}
-
-// GetCalendarService returns a Google Calendar service
-func GetCalendarService(commonCfg *config.CommonConfig, userCfg *config.UserConfig) (*calendar.Service, error) {
-	oauthConfig = getConfig(commonCfg)
-	client := getClient(oauthConfig, userCfg)
-	srv, err := calendar.New(client)
-	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve Calendar client: %v", err)
-	}
-	fmt.Println("Google Calendar client retrieved successfully.")
-	return srv, nil
 }
 
 // ClearCalendar deletes all events from the specified Google Calendar.

@@ -2,9 +2,10 @@ package config
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 )
+
+var AuthCode string
 
 type CommonConfig struct {
 	GoogleClientID     string `json:"google_client_id"`
@@ -56,13 +57,14 @@ func LoadUserConfig(filename string) (*UserConfig, error) {
 	return config, nil
 }
 
-func SaveUserConfig(username string, userCfg *UserConfig) error {
-	filePath := fmt.Sprintf("config/user_configs/%s.json", username)
+func SaveUserConfig(username string, config *UserConfig) error {
+	filePath := "config/user_configs/" + username + ".json"
 	file, err := os.Create(filePath)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
-	return json.NewEncoder(file).Encode(userCfg)
+	encoder := json.NewEncoder(file)
+	return encoder.Encode(config)
 }

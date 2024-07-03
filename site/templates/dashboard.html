@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard</title>
+</head>
+<body>
+    <h2>Dashboard</h2>
+    <form method="post">
+        <label for="google_calendar_id">Google Calendar ID:</label>
+        <input type="text" id="google_calendar_id" name="google_calendar_id" value="{{.GoogleCalendarID}}" required><br>
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" value="{{.Username}}" required><br>
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" value="{{.Password}}" required><br>
+        <button type="submit">Save</button>
+    </form>
+</body>
+</html>

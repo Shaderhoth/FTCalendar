@@ -3,21 +3,30 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"time"
 
 	"funtech-scraper/config"
 	"funtech-scraper/scraper"
+	"funtech-scraper/site"
 )
 
 func main() {
-	clearAll := true // Set this to true if you want to clear the calendar first
+	clearAll := false // Set this to true if you want to clear the calendar first
 
 	// Load common configuration
 	commonCfg, err := config.LoadCommonConfig("config/common_config.json")
 	if err != nil {
 		log.Fatalf("Error loading common config: %v", err)
 	}
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080" // Default port if not specified
+	}
+
+	go site.StartServer(port)
 
 	for {
 		// Get the list of user config files
