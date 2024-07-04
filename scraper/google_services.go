@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"funtech-scraper/config"
-	"funtech-scraper/site"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -18,7 +17,7 @@ var (
 	oauthConfig *oauth2.Config
 )
 
-func getClient(oauth2Config *oauth2.Config, userCfg *config.UserConfig) (*http.Client, error) {
+func getClient(oauth2Config *oauth2.Config, userCfg *config.UserConfig, getAuthCode func(string) (string, bool), saveUserConfig func(string, *config.UserConfig) error) (*http.Client, error) {
 	token := &oauth2.Token{
 		AccessToken:  userCfg.AccessToken,
 		TokenType:    userCfg.TokenType,
@@ -34,7 +33,7 @@ func getClient(oauth2Config *oauth2.Config, userCfg *config.UserConfig) (*http.C
 	newToken, err := tokSource.Token()
 	if err != nil {
 		fmt.Printf("Token invalid for user: %s, requesting new token...\n", userCfg.Username)
-		code, ok := site.GetAuthCode(userCfg.Username)
+		code, ok := getAuthCode(userCfg.Username)
 		if !ok {
 			return nil, fmt.Errorf("authorization code not found for user: %s", userCfg.Username)
 		}
@@ -49,7 +48,7 @@ func getClient(oauth2Config *oauth2.Config, userCfg *config.UserConfig) (*http.C
 		userCfg.RefreshToken = newToken.RefreshToken
 		userCfg.Expiry = newToken.Expiry.Format(time.RFC3339)
 
-		if err := config.SaveUserConfig(userCfg.Username, userCfg); err != nil {
+		if err := saveUserConfig(userCfg.Username, userCfg); err != nil {
 			return nil, fmt.Errorf("unable to save user config: %v", err)
 		}
 	}
@@ -69,9 +68,11 @@ func getConfig(cfg *config.CommonConfig) *oauth2.Config {
 }
 
 // GetCalendarService returns a Google Calendar service
-func GetCalendarService(commonCfg *config.CommonConfig, userCfg *config.UserConfig) (*calendar.Service, error) {
-	oauthConfig = getConfig(commonCfg)
-	client, err := getClient(oauthConfig, userCfg)
+func GetCalendarService(commonCfg *config.CommonConfig, userCfg *config.UserConfig, getAuthCode func(string) (string, bool), saveUserConfig func(string, *config.UserConfig) error) (*calendar.Service, error) {
+	if oauthConfig == nil {
+		oauthConfig = getConfig(commonCfg)
+	}
+	client, err := getClient(oauthConfig, userCfg, getAuthCode, saveUserConfig)
 	if err != nil {
 		return nil, fmt.Errorf("authorization failed for user: %s", userCfg.Username)
 	}
@@ -81,4 +82,14 @@ func GetCalendarService(commonCfg *config.CommonConfig, userCfg *config.UserConf
 	}
 	fmt.Println("Google Calendar client retrieved successfully.")
 	return srv, nil
+}
+
+// NeedsGoogleAuth checks if the user needs to authorize with Google.
+func NeedsGoogleAuth(userCfg *config.UserConfig) (string, bool) {
+	if oauthConfig == nil {
+		return "", false
+	}
+	state := userCfg.Username
+	authURL := oauthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline)
+	return authURL, true
 }

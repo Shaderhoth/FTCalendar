@@ -23,7 +23,7 @@ func main() {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080" // Default port if not specified
+		port = "8443" // Default port if not specified
 	}
 
 	go site.StartServer(port)
@@ -43,7 +43,7 @@ func main() {
 				continue
 			}
 
-			// Run the scraper
+			// Run the scraper to get lessons
 			lessons := scraper.ScrapeLessons(userCfg.Username, userCfg.Password)
 			if len(lessons) == 0 {
 				fmt.Printf("No lessons found for user: %s\n", userCfg.Username)
@@ -51,7 +51,7 @@ func main() {
 			}
 
 			// Get Google Calendar service
-			service, err := scraper.GetCalendarService(commonCfg, userCfg)
+			service, err := scraper.GetCalendarService(commonCfg, userCfg, site.GetAuthCode, site.SaveUserConfig)
 			if err != nil {
 				fmt.Printf("Error getting Google Calendar service for user (%s): %v\n", userCfg.Username, err)
 				continue
