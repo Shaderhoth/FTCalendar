@@ -85,11 +85,14 @@ func GetCalendarService(commonCfg *config.CommonConfig, userCfg *config.UserConf
 }
 
 // NeedsGoogleAuth checks if the user needs to authorize with Google.
-func NeedsGoogleAuth(userCfg *config.UserConfig) (string, bool) {
+func NeedsGoogleAuth(userCfg *config.UserConfig, commonCfg *config.CommonConfig) (string, bool) {
 	if oauthConfig == nil {
-		return "", false
+		oauthConfig = getConfig(commonCfg)
 	}
-	state := userCfg.Username
-	authURL := oauthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline)
-	return authURL, true
+	expiry, err := time.Parse(time.RFC3339, userCfg.Expiry)
+	if err != nil || userCfg.AccessToken == "" || userCfg.RefreshToken == "" || expiry.Before(time.Now()) {
+		authURL := oauthConfig.AuthCodeURL(userCfg.Username, oauth2.AccessTypeOffline)
+		return authURL, true
+	}
+	return "", false
 }
