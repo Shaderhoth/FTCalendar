@@ -8,7 +8,6 @@ import (
 
 	"funtech-scraper/config"
 	"funtech-scraper/scraper"
-	"funtech-scraper/site"
 )
 
 func main() {
@@ -43,7 +42,7 @@ func main() {
 			}
 
 			// Get Google Calendar service
-			service, err := scraper.GetCalendarService(commonCfg, userCfg, site.GetAuthCode, site.SaveUserConfig)
+			service, err := scraper.GetCalendarService(commonCfg, userCfg, config.GetAuthCode, config.SaveUserConfig)
 			if err != nil {
 				fmt.Printf("Error getting Google Calendar service for user (%s): %v\n", userCfg.Username, err)
 				continue

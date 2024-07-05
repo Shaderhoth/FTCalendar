@@ -4,35 +4,6 @@
     <meta charset="UTF-8">
     <title>Dashboard</title>
     <link rel="stylesheet" href="/site/templates/style.css">
-    <style>
-        .tooltip {
-            position: relative;
-            display: inline-block;
-            cursor: pointer;
-        }
-
-        .tooltip .tooltiptext {
-            visibility: hidden;
-            width: 220px;
-            background-color: #555;
-            color: #fff;
-            text-align: center;
-            border-radius: 6px;
-            padding: 5px;
-            position: absolute;
-            z-index: 1;
-            bottom: 125%; /* Position above the element */
-            left: 50%;
-            margin-left: -110px;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .tooltip:hover .tooltiptext {
-            visibility: visible;
-            opacity: 1;
-        }
-    </style>
 </head>
 <body>
     {{if .Message}}
@@ -42,26 +13,24 @@
     <h1>Welcome, {{.Username}}</h1>
 
     <form method="post">
-        <label for="google_calendar_id">Google Calendar ID:
-            <span class="tooltip">?
-                <span class="tooltiptext">You can find your Google Calendar ID in the settings of your Google Calendar. It usually looks something like this: yourname@gmail.com or like a long string of characters if it's a shared calendar. (It should be unter Integrate calendar)</span>
-            </span>
-        </label>
-        <input type="text" id="google_calendar_id" name="google_calendar_id" value="{{.GoogleCalendarID}}" required>
-
-        <label for="username">Username:
-            <span class="tooltip">?
-                <span class="tooltiptext">This should be your Funtech portal username that you use for work.</span>
-            </span>
-        </label>
+        <label for="username">Username:</label>
         <input type="text" id="username" name="username" value="{{.Username}}" required>
+        <div class="tooltip">
+            <span class="tooltiptext">This is your FunTech portal username.</span>
+        </div>
 
-        <label for="password">Password:
-            <span class="tooltip">?
-                <span class="tooltiptext">This should be your Funtech portal password that you use for work.</span>
-            </span>
-        </label>
+        <label for="password">Password:</label>
         <input type="password" id="password" name="password" value="{{.Password}}" required>
+        <div class="tooltip">
+            <span class="tooltiptext">This is your FunTech portal password.</span>
+        </div>
+
+        <label for="calendar_list">Select Calendar:</label>
+        <select id="calendar_list" name="google_calendar_id" required>
+            {{range .Calendars}}
+                <option value="{{.Id}}" {{if eq .Id $.GoogleCalendarID}}selected{{end}}>{{.Summary}}</option>
+            {{end}}
+        </select>
 
         <button type="submit">Save</button>
     </form>

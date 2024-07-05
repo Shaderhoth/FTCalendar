@@ -3,9 +3,14 @@ package config
 import (
 	"encoding/json"
 	"os"
+	"sync"
 )
 
-var AuthCode string
+var (
+	AuthCode  string
+	mu        sync.Mutex
+	authCodes = make(map[string]string)
+)
 
 type CommonConfig struct {
 	GoogleClientID     string `json:"google_client_id"`
@@ -67,4 +72,17 @@ func SaveUserConfig(username string, config *UserConfig) error {
 
 	encoder := json.NewEncoder(file)
 	return encoder.Encode(config)
+}
+
+func GetAuthCode(username string) (string, bool) {
+	mu.Lock()
+	defer mu.Unlock()
+	code, exists := authCodes[username]
+	return code, exists
+}
+
+func SetAuthCode(username, code string) {
+	mu.Lock()
+	defer mu.Unlock()
+	authCodes[username] = code
 }
