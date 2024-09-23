@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"sync"
 )
@@ -28,6 +29,7 @@ type UserConfig struct {
 	Expiry           string `json:"expiry"`
 }
 
+// LoadCommonConfig loads common configuration from a file
 func LoadCommonConfig(filename string) (*CommonConfig, error) {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -45,6 +47,7 @@ func LoadCommonConfig(filename string) (*CommonConfig, error) {
 	return config, nil
 }
 
+// LoadUserConfig loads the user configuration from a file
 func LoadUserConfig(filename string) (*UserConfig, error) {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -56,24 +59,41 @@ func LoadUserConfig(filename string) (*UserConfig, error) {
 	config := &UserConfig{}
 	err = decoder.Decode(config)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error decoding user config for %s: %v", filename, err)
 	}
 
 	return config, nil
 }
 
+// SaveUserConfig atomically saves the user configuration to a file
 func SaveUserConfig(username string, config *UserConfig) error {
-	filePath := "config/user_configs/" + username + ".json"
-	file, err := os.Create(filePath)
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Write to a temporary file to avoid incomplete writes
+	tmpFilePath := "config/user_configs/" + username + ".json.tmp"
+	file, err := os.Create(tmpFilePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create temp config file for %s: %v", username, err)
 	}
 	defer file.Close()
 
 	encoder := json.NewEncoder(file)
-	return encoder.Encode(config)
+	encoder.SetIndent("", "  ") // Optional: Makes the JSON more readable
+	if err := encoder.Encode(config); err != nil {
+		return fmt.Errorf("error encoding user config for %s: %v", username, err)
+	}
+
+	// Rename the temp file to the final file path
+	finalFilePath := "config/user_configs/" + username + ".json"
+	if err := os.Rename(tmpFilePath, finalFilePath); err != nil {
+		return fmt.Errorf("failed to rename temp config file for %s: %v", username, err)
+	}
+
+	return nil
 }
 
+// GetAuthCode retrieves the stored auth code for a given username
 func GetAuthCode(username string) (string, bool) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -81,6 +101,7 @@ func GetAuthCode(username string) (string, bool) {
 	return code, exists
 }
 
+// SetAuthCode sets an auth code for a user
 func SetAuthCode(username, code string) {
 	mu.Lock()
 	defer mu.Unlock()

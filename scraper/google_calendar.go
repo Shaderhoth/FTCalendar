@@ -45,12 +45,9 @@ func AddLessonsToGoogleCalendar(service *calendar.Service, calendarID string, le
 
 	fmt.Println("Lessons:")
 	for _, lesson := range lessons {
-		// Calculate the event date based on the day of the week and the week offset
-		eventDate := CalculateEventDate(time.Now(), lesson.Day, lesson.WeekOffset)
-
-		startDateTime, endDateTime, err := getEventTimes(eventDate, lesson.StartTime, lesson.EndTime)
+		startDateTime, endDateTime, err := getEventTimes(lesson.Date, lesson.StartTime, lesson.EndTime)
 		if err != nil {
-			fmt.Printf("error parsing event times: %v\n", err)
+			fmt.Printf("Error parsing event times: %v\n", err)
 			continue
 		}
 

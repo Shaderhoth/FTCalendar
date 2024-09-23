@@ -48,16 +48,13 @@ func getClient(oauth2Config *oauth2.Config, userCfg *config.UserConfig, getAuthC
 		}
 
 		log.Printf("New token retrieved for user: %s", userCfg.Username)
-		log.Printf("AccessToken: %s", newToken.AccessToken)
-		log.Printf("TokenType: %s", newToken.TokenType)
-		log.Printf("RefreshToken: %s", newToken.RefreshToken)
-		log.Printf("Expiry: %s", newToken.Expiry.Format(time.RFC3339))
-
+		// Update the user config ONLY if the token retrieval was successful
 		userCfg.AccessToken = newToken.AccessToken
 		userCfg.TokenType = newToken.TokenType
 		userCfg.RefreshToken = newToken.RefreshToken
 		userCfg.Expiry = newToken.Expiry.Format(time.RFC3339)
 
+		// Save the updated user configuration
 		if err := saveUserConfig(userCfg.Username, userCfg); err != nil {
 			log.Printf("Unable to save user config for user: %s, error: %v", userCfg.Username, err)
 			return nil, fmt.Errorf("unable to save user config: %v", err)
@@ -70,6 +67,7 @@ func getClient(oauth2Config *oauth2.Config, userCfg *config.UserConfig, getAuthC
 	return oauth2Config.Client(context.Background(), newToken), nil
 }
 
+// getConfig sets up the OAuth2 configuration for the Google Calendar API.
 func getConfig(cfg *config.CommonConfig) *oauth2.Config {
 	return &oauth2.Config{
 		ClientID:     cfg.GoogleClientID,
@@ -80,10 +78,12 @@ func getConfig(cfg *config.CommonConfig) *oauth2.Config {
 	}
 }
 
+// GetCalendarService retrieves the Google Calendar service for the user, managing token exchange or refresh as needed.
 func GetCalendarService(commonCfg *config.CommonConfig, userCfg *config.UserConfig, getAuthCode func(string) (string, bool), saveUserConfig func(string, *config.UserConfig) error) (*calendar.Service, error) {
 	if oauthConfig == nil {
 		oauthConfig = getConfig(commonCfg)
 	}
+
 	client, err := getClient(oauthConfig, userCfg, getAuthCode, saveUserConfig)
 	if err != nil {
 		return nil, fmt.Errorf("authorization failed for user: %s", userCfg.Username)
@@ -96,6 +96,7 @@ func GetCalendarService(commonCfg *config.CommonConfig, userCfg *config.UserConf
 	return srv, nil
 }
 
+// NeedsGoogleAuth checks if a new Google authorization is required for the user.
 func NeedsGoogleAuth(userCfg *config.UserConfig, commonCfg *config.CommonConfig) (string, bool) {
 	if oauthConfig == nil {
 		oauthConfig = getConfig(commonCfg)
@@ -109,6 +110,7 @@ func NeedsGoogleAuth(userCfg *config.UserConfig, commonCfg *config.CommonConfig)
 	return "", false
 }
 
+// GetUserCalendars retrieves the list of calendars the user has access to.
 func GetUserCalendars(service *calendar.Service) ([]*calendar.CalendarListEntry, error) {
 	calendarList, err := service.CalendarList.List().Do()
 	if err != nil {
