@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="/site/templates/style.css">
+</head>
+<body>
+    {{if .Message}}
+        <div class="message">{{.Message}}</div>
+    {{end}}
+
+    <h1>Welcome, {{.Username}}</h1>
+
+    <!-- Form for entering FunTech portal credentials and selecting a Google Calendar -->
+    <form method="post">
+        <!-- Username field -->
+        <div class="tooltip">
+            <label for="username">FunTech Username:</label>
+            <input type="text" id="username" name="username" value="{{.Username}}" required>
+            <!-- Tooltip explaining what the username field is for -->
+            <span class="tooltiptext">Please enter the username you use to log in to the FunTech portal.</span>
+        </div>
+
+        <!-- Password field -->
+        <div class="tooltip">
+            <label for="password">FunTech Password:</label>
+            <input type="password" id="password" name="password" value="{{.Password}}" required>
+            <!-- Tooltip explaining what the password field is for -->
+            <span class="tooltiptext">Please enter the password you use to log in to the FunTech portal.</span>
+        </div>
+
+        <!-- Calendar selection -->
+        <div class="tooltip">
+            <label for="calendar_list">Select Google Calendar (must be empty):</label>
+            <select id="calendar_list" name="google_calendar_id" required>
+                {{range .Calendars}}
+                    <option value="{{.Id}}" {{if eq .Id $.GoogleCalendarID}}selected{{end}}>{{.Summary}}</option>
+                {{end}}
+            </select>
+            <!-- Tooltip explaining what the calendar selection is for -->
+            <span class="tooltiptext">Select a Google Calendar that is currently empty. Any existing events will be cleared.</span>
+        </div>
+
+        <!-- Submit button -->
+        <button type="submit">Save</button>
+    </form>
+</body>
+</html>
+

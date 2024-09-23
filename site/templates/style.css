@@ -1,0 +1,106 @@
+body {
+    background-color: #1e1e1e;
+    color: #d3d3d3;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    text-align: center;
+}
+
+h1, h2 {
+    color: #007bff;
+    text-align: center;
+}
+
+.message {
+    color: green;
+    font-weight: bold;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+form {
+    background-color: #2b2b2b;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    max-width: 500px;
+    margin: 20px auto;
+    text-align: left;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    color: #d3d3d3;
+}
+
+input[type="text"], input[type="password"], select {
+    width: calc(100% - 22px);
+    padding: 10px;
+    margin-bottom: 20px;
+    border: 1px solid #444;
+    border-radius: 4px;
+    background-color: #1e1e1e;
+    color: #d3d3d3;
+}
+
+button {
+    background-color: #007bff;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+.tooltip {
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
+}
+
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 220px;
+    background-color: #555;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%; /* Position above the element */
+    left: 50%;
+    margin-left: -110px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+    opacity: 1;
+}
+
+select {
+    appearance: none;
+    background-color: #1e1e1e;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #d3d3d3;
+    padding: 10px;
+    width: calc(100% - 22px);
+}
+
+select:hover {
+    border-color: #007bff;
+}
+
+option {
+    background-color: #2b2b2b;
+    color: #d3d3d3;
+}

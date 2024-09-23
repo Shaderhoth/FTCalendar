@@ -2,3 +2,5 @@
 /build.bat
 /token.json
 /_*
+/config/common_config.json
+/config/user_configs/*
