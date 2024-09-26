@@ -1,0 +1,14 @@
+{
+  "name": "golang",
+  "version": "1.0.0",
+  "description": "This project scrapes lesson data from the FunTech website and syncs it with a Google Calendar.  \r Shoutout to [Weetile](https://github.com/Weetile/FunTechTutorScraper) for creating the original version in Python.  \r This is a rewrite in Golang with several updates.",
+  "main": "index.js",
+  "scripts": {},
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.47.2",
+    "@types/node": "^22.7.3"
+  }
+}
