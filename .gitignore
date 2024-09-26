@@ -4,3 +4,8 @@
 /_*
 /config/common_config.json
 /config/user_configs/*
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
