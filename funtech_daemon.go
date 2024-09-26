@@ -36,7 +36,7 @@ func main() {
 	}
 	defer pw.Stop()
 
-	// Set up the browser
+	// Set up the browser (shared across all users)
 	browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
 		Headless: playwright.Bool(true), // Set to false if you want to see the browser in action
 	})
@@ -67,14 +67,14 @@ func main() {
 					// Scrape availability data using Playwright
 					_, weeksByTerm, year := scraper.ScrapeAvailabilityWithClient(browser, userCfg.Username, userCfg.Password)
 
-					if err == nil && weeksByTerm != nil && year != "" {
+					if weeksByTerm != nil && year != "" {
 						sharedWeeksByTerm = weeksByTerm
 						sharedYear = year
 						lastAvailabilityRun = time.Now()
 						fmt.Println("ScrapeAvailability completed. Data shared across all users.")
 						break
 					} else {
-						fmt.Printf("Availability scraping failed on attempt %d: %v. Retrying...\n", retry+1, err)
+						fmt.Printf("Availability scraping failed on attempt %d. Retrying...\n", retry+1)
 					}
 
 				} else {
@@ -110,7 +110,8 @@ func main() {
 			// Run the scraper to get lessons for the current user
 			var allLessons []scraper.Lesson
 			for _, weeks := range sharedWeeksByTerm {
-				lessons := scraper.ScrapeLessonsWithClient(nil, userCfg.Username, userCfg.Password, weeks, sharedYear) // Adjust this to use Playwright if needed
+				// Using the shared browser for scraping lessons
+				lessons := scraper.ScrapeLessonsWithClient(browser, userCfg.Username, userCfg.Password, weeks, sharedYear)
 				allLessons = append(allLessons, lessons...)
 			}
 

@@ -2,19 +2,19 @@ package scraper
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/playwright-community/playwright-go"
 )
 
-// ScrapeLessonsWithClient scrapes lessons for all weeks in the term or year using a provided HTTP client session.
-func ScrapeLessonsWithClient(session *http.Client, username, password string, weeks []Week, year string) []Lesson {
-	loginURL := "https://funtech.co.uk/tutors"
+// ScrapeLessonsWithClient scrapes lessons for all weeks in the term or year using Playwright.
+func ScrapeLessonsWithClient(browser playwright.Browser, username, password string, weeks []Week, year string) []Lesson {
 	baseURL := "https://funtech.co.uk/tutor/tutors/tt_week_schedule"
 
-	if !login(session, loginURL, username, password) {
+	// Perform login using the Playwright login function
+	page, err := login(browser, username, password)
+	if err != nil {
 		fmt.Println("Login failed. Check your credentials and try again.")
 		fmt.Println("Credentials: ", username, password)
 		return nil
@@ -24,7 +24,7 @@ func ScrapeLessonsWithClient(session *http.Client, username, password string, we
 	for _, week := range weeks {
 		dataURL := fmt.Sprintf("%s/year:%s/term:%d/week:%d", baseURL, year, week.Term, week.WeekNumber)
 		fmt.Printf("Accessing URL: %s\n", dataURL)
-		lessonsForWeek := scrapeLessons(dataURL, session, week)
+		lessonsForWeek := scrapeLessonsPlaywright(page, dataURL, week)
 		fmt.Printf("Lessons retrieved from URL %s: %d\n", dataURL, len(lessonsForWeek))
 		allLessons = append(allLessons, lessonsForWeek...)
 	}
@@ -32,36 +32,38 @@ func ScrapeLessonsWithClient(session *http.Client, username, password string, we
 	// Log total number of lessons retrieved across all weeks
 	fmt.Printf("Total lessons retrieved across all weeks: %d\n", len(allLessons))
 
+	// Log out after scraping is complete
+	logoutURL := "https://funtech.co.uk/tutor/tutors/logout"
+	if _, err := page.Goto(logoutURL, playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateLoad,
+	}); err != nil {
+		fmt.Printf("Error logging out: %v\n", err)
+	}
+
 	return allLessons
 }
 
-// scrapeLessons scrapes lessons from the provided URL for a specific week.
-func scrapeLessons(dataURL string, session *http.Client, week Week) []Lesson {
-	// Log the URL being accessed
-	fmt.Printf("Accessing URL: %s\n", dataURL)
-
-	resp, err := session.Get(dataURL)
-	if err != nil {
-		fmt.Printf("Error fetching data from URL %s: %v\n", dataURL, err)
-		return nil
-	}
-	defer resp.Body.Close()
-
-	// Log the HTTP response status
-	fmt.Printf("HTTP Response Status from URL %s: %s\n", dataURL, resp.Status)
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Printf("Error reading response body from URL %s: %v\n", dataURL, err)
+// scrapeLessonsPlaywright scrapes lessons from the provided URL using Playwright.
+func scrapeLessonsPlaywright(page playwright.Page, dataURL string, week Week) []Lesson {
+	// Navigate to the lesson page
+	if _, err := page.Goto(dataURL, playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateLoad, // Wait until the "load" event
+	}); err != nil {
+		fmt.Printf("Error navigating to lessons page: %v\n", err)
 		return nil
 	}
 
-	// Log a portion of the raw HTML content for debugging
-	fmt.Printf("Raw HTML content snippet from URL %s: %.200s\n", dataURL, string(body)) // First 200 characters
-
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(body)))
+	// Get the page content dynamically rendered via JavaScript
+	pageHTML, err := page.Content()
 	if err != nil {
-		fmt.Printf("Error parsing HTML from URL %s: %v\n", dataURL, err)
+		fmt.Printf("Error retrieving content for URL %s: %v\n", dataURL, err)
+		return nil
+	}
+
+	// Parse the page HTML
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(pageHTML))
+	if err != nil {
+		fmt.Printf("Error parsing HTML for URL %s: %v\n", dataURL, err)
 		return nil
 	}
 
